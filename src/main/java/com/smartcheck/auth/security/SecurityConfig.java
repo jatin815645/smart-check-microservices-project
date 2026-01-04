@@ -5,5 +5,5 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 
 @Configuration
 @EnableMethodSecurity
-public class SecurityConfig  {
+public class SecurityConfig {
 }
