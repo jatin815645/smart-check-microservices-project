@@ -6,6 +6,7 @@ import com.smartcheck.auth.dto.response.AuthResponse;
 import com.smartcheck.auth.entity.Role;
 import com.smartcheck.auth.entity.User;
 import com.smartcheck.auth.entity.enums.UserStatus;
+import com.smartcheck.auth.exception.InvalidCredentialsException;
 import com.smartcheck.auth.exception.UserAlreadyExistsException;
 import com.smartcheck.auth.repository.RoleRepository;
 import com.smartcheck.auth.repository.UserRepository;
@@ -18,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -36,26 +38,25 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthAuditService authAuditService;
+    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     @Override
     public AuthResponse login(LoginRequest request) {
 
-        Authentication authentication =
-                authenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(
-                                request.getUsername(),
-                                request.getPassword()
-                        )
-                );
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid username"));
 
-        String token = jwtTokenProvider.generateToken(authentication);
+        if (!encoder.matches(request.getPassword(), user.getPassword())){
+            throw new InvalidCredentialsException("Invalid password");
+        }
+
 
         authAuditService.logAsync(
                 request.getUsername(),
                 "LOGIN"
         );
 
-        return new AuthResponse(token, "Bearer ");
+        return new AuthResponse(jwtTokenProvider.generateToken(user));
     }
 
     @Override
